@@ -1,0 +1,27 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Data & model artifacts (large — do not commit)
+data/raw/*
+data/splits/*
+!data/raw/.gitkeep
+!data/splits/.gitkeep
+*.h5
+*.keras
+
+# Results (keep folder, ignore generated artifacts except the report)
+results/*.png
+results/*.csv
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/

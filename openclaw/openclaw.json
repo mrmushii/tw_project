@@ -87,6 +87,24 @@
     },
   },
 
+  // Render's free tier gives roughly 0.1 of a CPU core and 512 MB RAM. With the
+  // default plugin set the gateway logged eventLoopDelayMaxMs over 20000 and
+  // cpuCoreRatio 0.13 — turns started but never finished. None of these plugins
+  // are used by reminders, the briefing, or GitHub notifications, and `browser`
+  // additionally spawns its own browser-control server.
+  //
+  // Kept: telegram (the channel), memory-core (reminders), device-pair.
+  plugins: {
+    deny: [
+      "browser",
+      "canvas",
+      "file-transfer",
+      "phone-control",
+      "talk-voice",
+      "ollama",
+    ],
+  },
+
   // Owner for privileged commands. Also lost with the state dir if left to the
   // pairing flow, so it is pinned here for the same reason as the allowlist above.
   commands: {

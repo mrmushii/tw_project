@@ -19,7 +19,12 @@ services:
     region: singapore          # nearest to India; change if latency is poor
     dockerfilePath: ./openclaw/Dockerfile
     dockerContext: .           # build from repo root so COPY openclaw/... resolves
-    healthCheckPath: /v1/models
+    # healthCheckPath is deliberately NOT set. On the free tier an agent turn
+    # starves the event loop for 20s+, so Render's 5-second health check times
+    # out, Render kills the instance, and it restarts mid-turn — a death loop
+    # ("Instance failed ... HTTP health check failed (timed out after 5 seconds)").
+    # Without it Render only requires the port to be bound, which the gateway
+    # does immediately at startup.
     autoDeployTrigger: commit
 
     envVars:

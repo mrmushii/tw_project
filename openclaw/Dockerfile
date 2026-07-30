@@ -40,8 +40,13 @@ RUN mkdir -p /app/state
 
 EXPOSE 18789
 
-# Render injects $PORT and requires the process to bind it. OpenClaw reads
-# OPENCLAW_GATEWAY_PORT, so translate one to the other and fall back to the
-# default when running locally. Bind resolves to 0.0.0.0 automatically because
-# OpenClaw detects the container environment.
-CMD ["sh", "-c", "export OPENCLAW_GATEWAY_PORT=\"${PORT:-18789}\" && exec openclaw gateway"]
+# The entrypoint materialises the Anthropic auth profile from ANTHROPIC_AUTH_TOKEN
+# (OpenClaw will not authenticate agent turns from the env var alone) and maps
+# Render's $PORT onto OPENCLAW_GATEWAY_PORT before starting the gateway.
+#
+# Binding to 0.0.0.0 is handled by gateway.bind="lan" in openclaw.json — NOT by
+# container auto-detection, which does not fire on Render.
+COPY openclaw/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]

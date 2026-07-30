@@ -30,7 +30,15 @@ plainly and stop. Do not guess a repository name.
 
 ## Tracking what has already been reported
 
-Keep a small JSON file at `$OPENCLAW_STATE_DIR/github-notify-seen.json`:
+Keep a small JSON file at this **exact literal path** — do not use
+`$OPENCLAW_STATE_DIR`, which is empty in the exec environment and would silently
+resolve to the filesystem root:
+
+```
+$HOME/.openclaw/github-notify-seen.json
+```
+
+Contents:
 
 ```json
 {
@@ -41,10 +49,24 @@ Keep a small JSON file at `$OPENCLAW_STATE_DIR/github-notify-seen.json`:
 }
 ```
 
-Read it before polling and write it back after. **On the first ever run the file
-will not exist** — in that case, record current state and report only a one-line
-summary ("watching <repo>, currently N open PRs"). Do not dump the entire repo
-history as if it were all new.
+Follow this order exactly, every run:
+
+1. **Read the state file first**, before any API call. `cat` it and show yourself
+   the contents.
+2. **If it exists and `last_commit_sha` is non-empty, this is NOT a first run.**
+   Compare against it and report what is new. Never announce "baseline
+   established" when a baseline already exists — that is the signature of having
+   failed to read the file, and it hides real activity.
+3. **If it is missing or `last_commit_sha` is empty**, this is a first run:
+   record current state and report only a one-line summary ("watching <repo>,
+   currently N open PRs"). Do not dump the entire repo history as if it were new.
+4. **Write the file back at the end of every run**, with the newest commit SHA
+   you saw, even when nothing was new. Write the real values you fetched — never
+   write the empty template above back to disk.
+
+**Do not answer from memory.** If you checked this repository earlier in the
+conversation, poll the API again anyway; a cached answer will miss everything
+that happened since.
 
 On Render's free tier this file is wiped on every restart, so the first run after
 a redeploy behaves like a fresh start. That is expected, not a bug.

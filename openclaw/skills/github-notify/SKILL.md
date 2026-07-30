@@ -1,6 +1,6 @@
 ---
 name: github-notify
-description: Check a GitHub repository for new commits, pull requests, PR reviews, and failed CI runs, and report anything new since the last check. Use when the user asks about GitHub activity, repo status, PR or CI state, or when running a scheduled repository check.
+description: Check a GitHub repository for commits, pull requests, PR reviews, and failed CI runs. Use for ANY question about the watched repository - new activity, repo status, the latest or last commit and its message, who pushed what, open PRs, review state, or CI failures - and for scheduled repository checks. Never clone the repo or read git history to answer these; this skill queries the GitHub API directly.
 ---
 
 # GitHub activity notifications
@@ -13,10 +13,12 @@ python skills/github-notify/check.py
 
 The path is relative on purpose: your working directory is the agent workspace,
 which is `~/.openclaw/workspace` locally and `/app/workspace` in the container.
-An absolute `$HOME/...` path works locally and fails in the container.
 
-If that command is not found, fall back to `python3` instead of `python`, and
-only then to an absolute path.
+**Never substitute an absolute path.** `$HOME/.openclaw/workspace/...` is wrong in
+the container and the failed command is shown to the user as an error. If the
+command above succeeded, you are done — do not run a second variant to
+double-check. If `python` is genuinely missing, use `python3` with the same
+relative path.
 
 That single command is the whole procedure. It loads credentials, reads the
 state file, polls GitHub, works out what is new, and writes the state back.
@@ -43,6 +45,22 @@ Your only job is to relay the output:
   not try another approach.
 
 Never claim there is no new activity when the script printed `NEW_ACTIVITY`.
+
+## Questions about specific commits
+
+If asked something the script's output does not cover — "what was the last commit
+message?", "who pushed last?" — query the API directly rather than answering from
+memory:
+
+```sh
+curl -s -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer $GITHUB_TOKEN" \
+  "https://api.github.com/repos/$GITHUB_REPO/commits?per_page=5"
+```
+
+Source the state-dir dotenv first (see Configuration). **Never clone the
+repository or read local git history** — the workspace is not a checkout of it,
+and cloning to answer a one-line question is the wrong shape of answer.
 
 ## Configuration
 

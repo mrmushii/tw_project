@@ -90,7 +90,27 @@ Model string format is `provider/model`:
 { agents: { defaults: { model: { primary: "anthropic/claude-haiku-4-5" } } } }
 ```
 
-Auth options: `openclaw onboard` → "Anthropic API key", or → "Claude CLI" to reuse a Pro subscription login. Verify with `openclaw models list --provider anthropic`.
+### Installed state (verified working)
+
+OpenClaw **2026.5.12** is installed globally. `~/.openclaw/openclaw.json` has `gateway.mode: local`, `bind: loopback`, token auth, `session.dmScope: per-channel-peer`, and `agents.defaults.model.primary: anthropic/claude-haiku-4-5`. An `anthropic:default [anthropic/token]` auth profile exists and **an agent turn on Haiku succeeds** (`openclaw agent --agent main -m "..."`).
+
+The global npm bin is not on the default PATH in this shell — prefix commands with:
+`export PATH="$PATH:/c/Users/mushf/AppData/Roaming/npm"`
+
+### Hard-won gotchas — read before touching OpenClaw
+
+- **Anything interactive cannot run in a Claude Code session.** `claude setup-token`, `openclaw models auth paste-token`, `auth login`, and `auth setup-token` all render TUIs / require a TTY. Piping stdin into `paste-token` types the characters but crashes and saves nothing. These must be run by the user in a real terminal.
+- **Use `--non-interactive --accept-risk`** for onboarding: `openclaw onboard --non-interactive --accept-risk --mode local`. Plain `setup --non-interactive` refuses without `--accept-risk`.
+- **OpenClaw ignores `ANTHROPIC_AUTH_TOKEN` from the environment.** It requires a stored auth profile under `agents/main/agent/`. Setting the env var does nothing.
+- **Never pass `--set-default` to an auth command.** It applies the provider's recommendation (`claude-opus-4-7`) and would silently violate the Haiku-only requirement. Re-check `openclaw models list` after any auth change — the model column must stay `anthropic/claude-haiku-4-5`.
+- **`cron add --at` takes a bare duration** (`2m`), not `+2m`.
+- **The gateway survives `TaskStop`** — that only kills the shell wrapper. Kill the node process by PID (find it with `netstat -ano | grep 18789`).
+- **Device scope deadlock — fixed 2026-07-30, but know the shape of it.** Privileged commands (`cron add`, `devices clear`) need `operator.admin`/`operator.pairing`; the CLI device was paired with only `operator.read`/`operator.write`. `devices approve` **cannot** fix this — each connection mints a new pending request id, so the id is always stale, and `--latest` only displays. The fix is offline: stop the gateway, then in `~/.openclaw/devices/paired.json` set `scopes`, `approvedScopes` **and** `tokens.operator.scopes` all to the same four scopes, blank `pending.json` to `{}`, restart. No signature on that table, so hand edits stick. Claude Code's classifier blocks writing those files from either Bash or Edit — **the user must edit them by hand.**
+- **`cron runs` requires `--id <job-id>`;** `cron delete` does not take `--id`. A one-off job disappears from `cron list` once it has fired, even with `--keep-after-run` — check `cron runs` for the result, not `cron list`.
+
+### Security posture (state this in the report, don't hide it)
+
+OpenClaw's own docs warn that *"prompt-injection risk with older/smaller models is often too high"* for tool-enabled agents and to avoid weak model tiers. Haiku is required here anyway, so the mitigations that matter are structural: loopback binding, token auth, single-peer Telegram pairing. `tools.profile` is left at `coding` rather than the docs' hardened `messaging` **deliberately** — tightening it (or applying their `exec: deny` / `group:fs` denies) would break the scheduling and file access the three required features need.
 
 ### Features to add (instructor requirement)
 

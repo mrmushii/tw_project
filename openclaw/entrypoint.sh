@@ -30,7 +30,15 @@ if [ -n "$ANTHROPIC_AUTH_TOKEN" ]; then
   printf '{\n  "version": 1,\n  "profiles": {\n    "anthropic:default": {\n      "type": "token",\n      "provider": "anthropic",\n      "token": "%s"\n    }\n  }\n}\n' \
     "$ANTHROPIC_AUTH_TOKEN" > "$AUTH_PROFILES"
   chmod 600 "$AUTH_PROFILES"
+
+  # The profile alone is not enough: auth-state.json is what binds the provider
+  # to a profile ("lastGood"). Without it the agent reports
+  # 'No API key found for provider "anthropic"' even though the profile exists.
+  printf '{\n  "version": 1,\n  "lastGood": {\n    "anthropic": "anthropic:default"\n  }\n}\n' \
+    > "$AGENT_AUTH_DIR/auth-state.json"
+
   echo "[entrypoint] wrote anthropic auth profile (${#ANTHROPIC_AUTH_TOKEN} chars) to $AUTH_PROFILES"
+  echo "[entrypoint] wrote auth-state.json binding anthropic -> anthropic:default"
 else
   echo "[entrypoint] WARNING: ANTHROPIC_AUTH_TOKEN is unset — agent turns will fail with HTTP 401."
 fi

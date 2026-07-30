@@ -32,6 +32,19 @@
       // That is what makes this work on Render's free tier.
       dmPolicy: "pairing",
       groups: { "*": { requireMention: true } },
+
+      // Suppress the per-tool progress messages. By default OpenClaw streams a
+      // line per tool call into the chat, including the raw command text, so a
+      // simple question arrives buried under several "Exec" lines. Turning off
+      // `toolProgress` leaves normal text streaming intact — the reply still
+      // appears progressively, which matters because an agent turn takes
+      // 20-50s and total silence reads as a hung bot during a live demo.
+      // `commandText: "status"` is belt-and-braces: if a progress line is ever
+      // emitted, it shows a status label instead of the raw shell command.
+      streaming: {
+        preview: { toolProgress: false },
+        progress: { toolProgress: false, commandText: "status" },
+      },
     },
   },
 

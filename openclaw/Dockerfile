@@ -12,6 +12,11 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl git python3 \
     && rm -rf /var/lib/apt/lists/*
 
+# Debian ships python3 with no `python` alias. The github-notify skill invokes
+# `python`, which is what exists on the Windows dev machine, so alias it here
+# rather than making the skill branch on platform.
+RUN ln -sf /usr/bin/python3 /usr/bin/python
+
 RUN npm install -g openclaw
 
 WORKDIR /app

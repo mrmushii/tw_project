@@ -8,8 +8,15 @@ description: Check a GitHub repository for new commits, pull requests, PR review
 ## Run exactly this, and nothing else
 
 ```sh
-python "$HOME/.openclaw/workspace/skills/github-notify/check.py"
+python skills/github-notify/check.py
 ```
+
+The path is relative on purpose: your working directory is the agent workspace,
+which is `~/.openclaw/workspace` locally and `/app/workspace` in the container.
+An absolute `$HOME/...` path works locally and fails in the container.
+
+If that command is not found, fall back to `python3` instead of `python`, and
+only then to an absolute path.
 
 That single command is the whole procedure. It loads credentials, reads the
 state file, polls GitHub, works out what is new, and writes the state back.

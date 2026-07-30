@@ -4,43 +4,38 @@
 # Two things have to happen before the gateway starts, both consequences of the
 # state directory being ephemeral on Render's free tier.
 #
-# 1. Anthropic auth. OpenClaw does NOT read ANTHROPIC_AUTH_TOKEN from the
-#    environment for agent turns — it authenticates from a stored auth profile
-#    that `openclaw models auth setup-token` normally writes interactively. That
-#    file lives under the state dir, so on Render it simply does not exist and
-#    every turn fails with "Authentication failed (provider returned HTTP 401)".
-#    An interactive setup-token run is impossible in a container, so the profile
-#    is materialised here from the env var instead.
+# 1. Anthropic auth. OpenClaw recognises exactly two env vars for this provider:
+#
+#        CORE_PROVIDER_AUTH_ENV_VAR_CANDIDATES = {
+#          anthropic: ["ANTHROPIC_OAUTH_TOKEN", "ANTHROPIC_API_KEY"], ...
+#
+#    ANTHROPIC_AUTH_TOKEN — the name the local .env and render.yaml use, and the
+#    name the Anthropic SDK itself accepts — is NOT among them, so setting it
+#    alone produces "No API key found for provider anthropic" on every turn.
+#    A Claude Pro subscription token (sk-ant-oat01-...) is an OAuth credential,
+#    so it belongs in ANTHROPIC_OAUTH_TOKEN. This maps one to the other.
+#
+#    Writing auth-profiles.json / auth-state.json by hand does NOT work on this
+#    version: the agent authenticates from openclaw-agent.sqlite, and static JSON
+#    profiles written into the agent dir are ignored. Tried, verified, abandoned.
 #
 # 2. Render injects $PORT and requires the process to bind it; OpenClaw reads
 #    OPENCLAW_GATEWAY_PORT.
 #
-# The token is written to the container filesystem only. It is never baked into
-# the image and never committed.
+# Credentials stay in the process environment and the container filesystem only.
+# Nothing is baked into the image and nothing is committed.
 
 set -e
 
 STATE_DIR="${OPENCLAW_STATE_DIR:-/app/state}"
-AGENT_AUTH_DIR="$STATE_DIR/agents/main/agent"
-AUTH_PROFILES="$AGENT_AUTH_DIR/auth-profiles.json"
 
-if [ -n "$ANTHROPIC_AUTH_TOKEN" ]; then
-  mkdir -p "$AGENT_AUTH_DIR"
-  # printf keeps the token out of the process list and out of any log line.
-  printf '{\n  "version": 1,\n  "profiles": {\n    "anthropic:default": {\n      "type": "token",\n      "provider": "anthropic",\n      "token": "%s"\n    }\n  }\n}\n' \
-    "$ANTHROPIC_AUTH_TOKEN" > "$AUTH_PROFILES"
-  chmod 600 "$AUTH_PROFILES"
+if [ -z "$ANTHROPIC_OAUTH_TOKEN" ] && [ -n "$ANTHROPIC_AUTH_TOKEN" ]; then
+  export ANTHROPIC_OAUTH_TOKEN="$ANTHROPIC_AUTH_TOKEN"
+  echo "[entrypoint] mapped ANTHROPIC_AUTH_TOKEN -> ANTHROPIC_OAUTH_TOKEN (${#ANTHROPIC_OAUTH_TOKEN} chars)"
+fi
 
-  # The profile alone is not enough: auth-state.json is what binds the provider
-  # to a profile ("lastGood"). Without it the agent reports
-  # 'No API key found for provider "anthropic"' even though the profile exists.
-  printf '{\n  "version": 1,\n  "lastGood": {\n    "anthropic": "anthropic:default"\n  }\n}\n' \
-    > "$AGENT_AUTH_DIR/auth-state.json"
-
-  echo "[entrypoint] wrote anthropic auth profile (${#ANTHROPIC_AUTH_TOKEN} chars) to $AUTH_PROFILES"
-  echo "[entrypoint] wrote auth-state.json binding anthropic -> anthropic:default"
-else
-  echo "[entrypoint] WARNING: ANTHROPIC_AUTH_TOKEN is unset — agent turns will fail with HTTP 401."
+if [ -z "$ANTHROPIC_OAUTH_TOKEN" ] && [ -z "$ANTHROPIC_API_KEY" ]; then
+  echo "[entrypoint] WARNING: no Anthropic credential found — agent turns will fail."
 fi
 
 # GitHub credentials for the github-notify skill. The skill reads the state-dir

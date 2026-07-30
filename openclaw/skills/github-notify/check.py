@@ -20,8 +20,12 @@ import urllib.error
 import urllib.request
 
 HOME = os.path.expanduser("~")
-ENV_PATH = os.path.join(HOME, ".openclaw", ".env")
-STATE_PATH = os.path.join(HOME, ".openclaw", "github-notify-seen.json")
+# In a container OPENCLAW_STATE_DIR is set (/app/state) and $HOME/.openclaw does not
+# exist. Locally the reverse is true: the variable is empty in the agent's exec
+# environment, so it must not be trusted blindly — hence the explicit fallback.
+STATE_DIR = os.environ.get("OPENCLAW_STATE_DIR") or os.path.join(HOME, ".openclaw")
+ENV_PATH = os.path.join(STATE_DIR, ".env")
+STATE_PATH = os.path.join(STATE_DIR, "github-notify-seen.json")
 API = "https://api.github.com"
 
 EMPTY_STATE = {
@@ -33,7 +37,14 @@ EMPTY_STATE = {
 
 
 def load_env():
-    """Parse the state-dir dotenv. Never print the values."""
+    """Resolve credentials. Never print the values.
+
+    Locally the gateway strips secret-shaped variables from the agent's exec
+    environment, so the dotenv is the only path that works. In a container there
+    is no dotenv and the platform supplies real environment variables. Try the
+    file first, then fall back to the process environment, so the same script
+    works in both places.
+    """
     env = {}
     try:
         with open(ENV_PATH, encoding="utf-8") as fh:
@@ -44,7 +55,11 @@ def load_env():
                 key, _, value = line.partition("=")
                 env[key.strip()] = value.strip().strip('"').strip("'")
     except FileNotFoundError:
-        sys.exit(f"ERROR: {ENV_PATH} not found. Cannot authenticate.")
+        pass
+
+    for key in ("GITHUB_TOKEN", "GITHUB_REPO"):
+        if not env.get(key):
+            env[key] = os.environ.get(key, "")
     return env
 
 
@@ -92,9 +107,9 @@ def main():
     token = env.get("GITHUB_TOKEN", "")
     repo = env.get("GITHUB_REPO", "")
     if not token:
-        sys.exit("ERROR: GITHUB_TOKEN missing from ~/.openclaw/.env")
+        sys.exit(f"ERROR: GITHUB_TOKEN not found in {ENV_PATH} or the environment.")
     if not repo:
-        sys.exit("ERROR: GITHUB_REPO missing from ~/.openclaw/.env")
+        sys.exit(f"ERROR: GITHUB_REPO not found in {ENV_PATH} or the environment.")
 
     state, first_run = load_state()
     base = f"/repos/{repo}"

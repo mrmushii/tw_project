@@ -16,6 +16,11 @@
       model: {
         primary: "anthropic/claude-haiku-4-5",
       },
+
+      // Baked into the image by the Dockerfile, deliberately NOT under the state
+      // dir: the state dir is wiped on every Render restart, which would strip the
+      // agent's persona (IDENTITY.md / SOUL.md / USER.md) along with it.
+      workspace: "/app/workspace",
     },
   },
 

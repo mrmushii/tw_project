@@ -9,6 +9,24 @@
 //   GITHUB_TOKEN          - PAT with `repo` scope, used by the github-notify skill
 //   GITHUB_REPO           - "owner/name" to watch
 {
+  // Without an explicit gateway.mode the gateway refuses to start ("existing
+  // config is missing gateway.mode ... treat this as suspicious or clobbered
+  // config") and Render's deploy exits 78 before binding a port.
+  gateway: {
+    mode: "local",
+
+    // bind is deliberately unset. OpenClaw detects the container and defaults to
+    // bind=auto (0.0.0.0), which is what Render's port scan needs; pinning
+    // "loopback" here would make the service unreachable and fail the health check.
+    //
+    // It also refuses to bind a non-loopback address without auth, so token auth
+    // is required. The token itself comes from OPENCLAW_GATEWAY_TOKEN, which
+    // render.yaml generates — never hardcoded here.
+    auth: {
+      mode: "token",
+    },
+  },
+
   agents: {
     defaults: {
       // Haiku throughout — required for this project. Cheapest and fastest;

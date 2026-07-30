@@ -38,6 +38,13 @@ services:
       - key: GITHUB_REPO
         sync: false
 
+      # Shared gateway auth token. OpenClaw refuses to bind a non-loopback
+      # address without auth, and in a container it binds 0.0.0.0 - so this is
+      # required, not optional. Render generates it; nobody needs to know it,
+      # because the agent is reached through Telegram rather than this port.
+      - key: OPENCLAW_GATEWAY_TOKEN
+        generateValue: true
+
       # Do NOT also set ANTHROPIC_API_KEY. Both credentials present at once
       # causes the API to reject every request.
 

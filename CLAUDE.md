@@ -36,6 +36,12 @@ Both branches are scored **only** on `data/splits/test/`, the same 216 images. V
 | 3 | `scripts/02_agent_classify.py` | Local | `results/agent_predictions.csv` |
 | 4 | `kaggle/vgg16_train.ipynb` | **Kaggle GPU** | `results/vgg16_predictions.csv` (download manually) |
 | 5 | `scripts/03_compare_results.py` | Local | `comparison_report.md`, `confusion_matrices.png` |
+| 6 | `scripts/04_presentation_figures.py` | Local | `results/figures/*.png` (+ `--dark` variants) |
+
+`04_presentation_figures.py` is read-only and re-derives its own alignment, so it
+cannot disagree with step 5. Seven figures for the report/slides — index and
+per-figure purpose in `results/figures/README.md`. Two series only: blue = agent,
+orange = VGG-16, a colourblind-safe pair; keep that mapping fixed across figures.
 
 TensorFlow is deliberately **not** in `requirements.txt` — VGG-16 trains on Kaggle's free GPU, not locally. Don't add it.
 

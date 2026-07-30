@@ -8,6 +8,31 @@ description: Check a GitHub repository for new commits, pull requests, PR review
 Polls the GitHub REST API for a watched repository and reports only what is **new
 since the last check**, so a scheduled run stays quiet when nothing has happened.
 
+## How to run this check
+
+**Run the script. Do not do the comparison yourself.**
+
+```sh
+python "$HOME/.openclaw/workspace/skills/github-notify/check.py"
+```
+
+It loads credentials, reads the state file, polls GitHub, works out what is new,
+and writes the state back. Your only job is to relay what it prints:
+
+- `NEW_ACTIVITY in <repo>:` followed by grouped items — report them, keeping the
+  grouping, leading with failed CI runs. Put it in your own voice, but do not
+  drop or reorder items, and do not add any item it did not print.
+- `NO_NEW_ACTIVITY ...` — on a scheduled run, stay silent. Only say "nothing
+  new" when the user asked directly.
+- `FIRST_RUN: ...` — relay the one-line summary as-is.
+- `ERROR: ...` — report the error verbatim and stop. Do not retry in a loop.
+
+Never re-derive "what is new" from your own memory of an earlier check, and
+never claim there is no new activity when the script printed `NEW_ACTIVITY`.
+
+The reference below documents what the script does and why. Read it if you need
+to debug the script, not to reimplement it by hand.
+
 ## Configuration
 
 - `GITHUB_TOKEN` — personal access token with read access to the repo

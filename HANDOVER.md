@@ -123,7 +123,28 @@ Untried options, roughly in order of safety:
 
 1. ~~**Resolve the device scope deadlock.**~~ DONE — see resolved section above.
 2. ~~**Verify scheduling.**~~ DONE — `SCHEDULED_OK` on Haiku, 2026-07-30 18:05.
-3. **Telegram** ← **NEXT. Blocked on the user creating the bot.** — user must create a bot via @BotFather (`/newbot`) and put the token in
+3. ~~**Telegram.**~~ DONE — channel enabled, long-polling, paired to `MrMushii`
+   (`5235029766`), `commands.ownerAllowFrom` set automatically by `pairing approve`.
+4. ~~**Command owner.**~~ DONE (side effect of pairing approve).
+5. ~~**Feature 1 — reminders.**~~ DONE. Natural-language scheduling verified; user
+   confirmed delivery on Telegram.
+6. ~~**Feature 2 — morning briefing.**~~ DONE. `morning-briefing`, `cron 30 7 * * *`
+   @ Asia/Dhaka. Dry-run delivered real weather. Weather via open-meteo JSON API —
+   scraping weather *sites* does not work.
+7. ~~**Feature 3 — GitHub notifications.**~~ DONE. `github-poll`, every 30m.
+   Detection verified end-to-end on the isolated scheduled path.
+
+### NEXT: deployment (step 8 onward below)
+
+**Persona:** the agent is **Chela** 🦞 — `IDENTITY.md`, `SOUL.md`, `USER.md` in
+`~/.openclaw/workspace/`. **These are not in the repo** and a Render redeploy wipes
+them. Copy them into the image if the persona should survive.
+
+**Local state not in the repo, all wiped by a Render redeploy:** the three persona
+files, `~/.openclaw/.env` (GITHUB_TOKEN + GITHUB_REPO), `~/.openclaw/github-notify-seen.json`,
+the cron store, and the auth profile.
+
+Old numbering continues below. — user must create a bot via @BotFather (`/newbot`) and put the token in
    `.env` as `TELEGRAM_BOT_TOKEN=...`. Not yet set. Then enable the channel, run
    `openclaw gateway`, `openclaw pairing list telegram`,
    `openclaw pairing approve telegram <CODE>`. Long polling is the default — no

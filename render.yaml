@@ -1,0 +1,49 @@
+# Render blueprint for the OpenClaw gateway.
+#
+# Deploy: push this repo to GitHub, then Render dashboard -> New -> Blueprint.
+# Set every value marked sync:false in the dashboard; none are stored in git.
+#
+# Free-tier constraints (both accepted, both documented in the project report):
+#   1. No persistent disk. /app/state is wiped on restart and redeploy, so
+#      scheduled reminders and Telegram pairings do not survive. Re-seed before
+#      the demo. Attaching a paid disk and pointing OPENCLAW_STATE_DIR at it is
+#      the real fix.
+#   2. Services sleep after ~15 min idle, and a sleeping instance silently misses
+#      scheduled tasks. An external cron must keep it warm - see keepAlive below.
+
+services:
+  - type: web
+    name: openclaw-gateway
+    runtime: docker
+    plan: free
+    region: singapore          # nearest to India; change if latency is poor
+    dockerfilePath: ./openclaw/Dockerfile
+    dockerContext: .           # build from repo root so COPY openclaw/... resolves
+    healthCheckPath: /v1/models
+    autoDeployTrigger: commit
+
+    envVars:
+      # Claude Pro subscription token from `claude setup-token`.
+      # Draws on subscription limits rather than per-token billing.
+      - key: ANTHROPIC_AUTH_TOKEN
+        sync: false
+
+      # Telegram bot token from @BotFather.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+
+      # GitHub PAT (repo scope) + the repo to watch, for the github-notify skill.
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: GITHUB_REPO
+        sync: false
+
+      # Do NOT also set ANTHROPIC_API_KEY. Both credentials present at once
+      # causes the API to reject every request.
+
+# Keep-alive: Render cron jobs are a paid feature, so use a free external pinger
+# (cron-job.org or similar) hitting the health endpoint every 10 minutes:
+#
+#   https://openclaw-gateway.onrender.com/v1/models
+#
+# 10 minutes is deliberately inside the ~15 minute idle window.

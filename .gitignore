@@ -12,6 +12,7 @@ env/
 # Data & model artifacts (large — do not commit)
 data/raw/*
 data/splits/*
+data/splits.zip
 !data/raw/.gitkeep
 !data/splits/.gitkeep
 *.h5

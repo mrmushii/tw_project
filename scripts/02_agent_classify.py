@@ -16,10 +16,19 @@ Design notes:
     kept verbatim in raw_response and flagged so Step 5 can decide how to score it.
 
 Usage:
-    python scripts/02_agent_classify.py --limit 10     # smoke test first
+    python scripts/02_agent_classify.py --limit 1      # auth gate
+    python scripts/02_agent_classify.py --limit 10     # smoke test
     python scripts/02_agent_classify.py                # full run (resumes)
 
-Requires ANTHROPIC_API_KEY in .env (never hardcode it).
+Auth — two mutually exclusive options in .env (never hardcode either):
+  - ANTHROPIC_AUTH_TOKEN  : a Claude Pro/Max OAuth token from `claude setup-token`
+                            (starts sk-ant-oat01-). Draws on subscription limits
+                            instead of per-token billing. Requires the
+                            oauth-2025-04-20 beta header, set below.
+  - ANTHROPIC_API_KEY     : a pay-per-token key (starts sk-ant-api03-).
+
+Only ONE may be active. If both are set the API rejects the request, so when a
+subscription token is present we drop the API key from the environment.
 """
 
 import argparse
@@ -50,19 +59,54 @@ PROMPT = (
 )
 
 
-def load_api_key() -> None:
-    """Load ANTHROPIC_API_KEY from .env into the environment."""
+def load_credentials() -> str:
+    """Load credentials from .env and return which auth mode is active.
+
+    Returns "oauth" for a subscription token or "api_key" for a billed key.
+    Sending both headers at once is rejected by the API, so if a subscription
+    token is present the API key is removed from the environment.
+    """
     try:
         from dotenv import load_dotenv
     except ImportError:
         sys.exit("python-dotenv not installed. Run: pip install -r requirements.txt")
     load_dotenv(PROJECT_ROOT / ".env")
+
     import os
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        sys.exit(
-            "ANTHROPIC_API_KEY not set. Copy .env.example to .env and paste your key:\n"
-            "  cp .env.example .env"
-        )
+    token = os.environ.get("ANTHROPIC_AUTH_TOKEN", "").strip()
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+
+    if token:
+        if api_key:
+            # Both set: the SDK would send both headers and the API would 401.
+            print("[info] ANTHROPIC_AUTH_TOKEN found — ignoring ANTHROPIC_API_KEY "
+                  "for this run (the API rejects requests carrying both).")
+            os.environ.pop("ANTHROPIC_API_KEY", None)
+        return "oauth"
+
+    if api_key:
+        return "api_key"
+
+    sys.exit(
+        "No credentials found. Set exactly one of these in .env:\n"
+        "  ANTHROPIC_AUTH_TOKEN=sk-ant-oat01-...   (from `claude setup-token`, uses your Pro plan)\n"
+        "  ANTHROPIC_API_KEY=sk-ant-api03-...      (pay-per-token)\n"
+        "Copy the template first if needed:  cp .env.example .env"
+    )
+
+
+def build_client(auth_mode: str):
+    """Construct an Anthropic client for the active auth mode."""
+    import anthropic
+
+    # The SDK reads ANTHROPIC_AUTH_TOKEN / ANTHROPIC_API_KEY from the environment.
+    # OAuth tokens travel on `Authorization: Bearer` and additionally require the
+    # oauth beta header; an API key needs neither.
+    extra = (
+        {"default_headers": {"anthropic-beta": "oauth-2025-04-20"}}
+        if auth_mode == "oauth" else {}
+    )
+    return anthropic.Anthropic(max_retries=5, **extra)  # SDK handles 429/5xx backoff
 
 
 def collect_test_images() -> list[tuple[Path, str]]:
@@ -130,10 +174,11 @@ def main() -> None:
                     help="Seconds to sleep between calls (default: 0.3).")
     args = ap.parse_args()
 
-    load_api_key()
+    auth_mode = load_credentials()
     import anthropic
 
-    client = anthropic.Anthropic(max_retries=5)  # SDK handles 429/5xx backoff
+    client = build_client(auth_mode)
+    print(f"Auth mode: {'Pro subscription token' if auth_mode == 'oauth' else 'API key (billed)'}")
 
     images = collect_test_images()
     done = already_done()

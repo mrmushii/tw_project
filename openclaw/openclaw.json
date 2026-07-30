@@ -1,0 +1,39 @@
+// OpenClaw config template — SECRETS-FREE, safe to commit.
+//
+// Copy to ~/.openclaw/openclaw.json for local use, or let the Docker image mount
+// it at the path given by OPENCLAW_CONFIG_PATH.
+//
+// Every credential is supplied by environment variable, never inlined here:
+//   ANTHROPIC_AUTH_TOKEN  - Claude Pro token from `claude setup-token`
+//   TELEGRAM_BOT_TOKEN    - from @BotFather (env fallback works for the default account)
+//   GITHUB_TOKEN          - PAT with `repo` scope, used by the github-notify skill
+//   GITHUB_REPO           - "owner/name" to watch
+{
+  agents: {
+    defaults: {
+      // Haiku throughout — required for this project. Cheapest and fastest;
+      // adequate for scheduling, summarising, and the image-classification task.
+      model: {
+        primary: "anthropic/claude-haiku-4-5",
+      },
+    },
+  },
+
+  channels: {
+    telegram: {
+      enabled: true,
+      // botToken intentionally omitted — read from TELEGRAM_BOT_TOKEN.
+      // Long polling is the default transport, so no inbound webhook is needed.
+      // That is what makes this work on Render's free tier.
+      dmPolicy: "pairing",
+      groups: { "*": { requireMention: true } },
+    },
+  },
+
+  skills: {
+    load: {
+      // Custom skills live beside this file; the image copies them to /app/skills.
+      extraDirs: ["/app/skills"],
+    },
+  },
+}

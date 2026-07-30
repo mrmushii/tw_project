@@ -58,7 +58,18 @@
       // botToken intentionally omitted — read from TELEGRAM_BOT_TOKEN.
       // Long polling is the default transport, so no inbound webhook is needed.
       // That is what makes this work on Render's free tier.
-      dmPolicy: "pairing",
+      // "allowlist" rather than "pairing" on purpose. `pairing approve` writes the
+      // approved sender to a STORE under the state dir, and Render's free tier has
+      // no persistent disk — so a paired instance forgets the pairing on every
+      // restart, and the bot goes silent until someone re-pairs by hand. An
+      // allowlist in config is baked into the image and survives every restart.
+      //
+      // The trade-off: this is the owner's Telegram user id in a public repo. It
+      // is not a secret (you cannot message someone from their numeric id alone),
+      // but it is identifying. Move it to an env var if that matters.
+      dmPolicy: "allowlist",
+      allowFrom: ["telegram:5235029766"],
+
       groups: { "*": { requireMention: true } },
 
       // Suppress the per-tool progress messages. By default OpenClaw streams a
@@ -74,6 +85,12 @@
         progress: { toolProgress: false, commandText: "status" },
       },
     },
+  },
+
+  // Owner for privileged commands. Also lost with the state dir if left to the
+  // pairing flow, so it is pinned here for the same reason as the allowlist above.
+  commands: {
+    ownerAllowFrom: ["telegram:5235029766"],
   },
 
   skills: {

@@ -8,17 +8,20 @@ description: Check a GitHub repository for commits, pull requests, PR reviews, a
 ## Run exactly this, and nothing else
 
 ```sh
-python skills/github-notify/check.py
+sh -c 'C=/app/workspace/skills/github-notify/check.py; [ -f "$C" ] || C=$HOME/.openclaw/workspace/skills/github-notify/check.py; python "$C"'
 ```
 
-The path is relative on purpose: your working directory is the agent workspace,
-which is `~/.openclaw/workspace` locally and `/app/workspace` in the container.
+Copy that line verbatim; it works in the container and on the local install.
 
-**Never substitute an absolute path.** `$HOME/.openclaw/workspace/...` is wrong in
-the container and the failed command is shown to the user as an error. If the
-command above succeeded, you are done — do not run a second variant to
-double-check. If `python` is genuinely missing, use `python3` with the same
-relative path.
+**Do not simplify it to a bare relative path** like
+`python skills/github-notify/check.py` — that only works if your working
+directory happens to be the workspace, and on the scheduled path it is not, so
+the run fails with "file not found" and you report a broken check. **Do not
+substitute a single hardcoded absolute path either** — the two candidates above
+differ per environment and the line picks whichever exists.
+
+If the command succeeded, you are done — do not run a second variant to
+double-check. If `python` is genuinely missing, use `python3` in the same line.
 
 That single command is the whole procedure. It loads credentials, reads the
 state file, polls GitHub, works out what is new, and writes the state back.
@@ -48,19 +51,26 @@ Never claim there is no new activity when the script printed `NEW_ACTIVITY`.
 
 ## Questions about specific commits
 
-If asked something the script's output does not cover — "what was the last commit
-message?", "who pushed last?" — query the API directly rather than answering from
-memory:
+For "what was the last commit message?", "who pushed last?", "show me recent
+commits" — use the `commits` subcommand. It is read-only and does not disturb the
+activity state:
 
 ```sh
-curl -s -H "Accept: application/vnd.github+json" \
-  -H "Authorization: Bearer $GITHUB_TOKEN" \
-  "https://api.github.com/repos/$GITHUB_REPO/commits?per_page=5"
+sh -c 'C=/app/workspace/skills/github-notify/check.py; [ -f "$C" ] || C=$HOME/.openclaw/workspace/skills/github-notify/check.py; python "$C" commits -n 5'
 ```
 
-Source the state-dir dotenv first (see Configuration). **Never clone the
-repository or read local git history** — the workspace is not a checkout of it,
-and cloning to answer a one-line question is the wrong shape of answer.
+It prints `COMMITS in <repo> (newest first):` and one line per commit with short
+SHA, subject, author and date. Relay what you need from that.
+
+**Never hand-roll the request** — no `curl`, no `Invoke-RestMethod`. `$GITHUB_TOKEN`
+is **empty** in your shell: the gateway strips secret-shaped variables from the
+exec environment. A curl using it fails on auth, and reporting "the GitHub token
+isn't configured" on that basis is wrong — the token is configured, it just only
+reaches `check.py`, which reads it from the dotenv itself.
+
+**Never clone the repository or read local git history** — the workspace is not a
+checkout of it, and cloning to answer a one-line question is the wrong shape of
+answer.
 
 ## Configuration
 

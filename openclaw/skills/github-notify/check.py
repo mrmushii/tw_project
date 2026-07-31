@@ -8,11 +8,16 @@ and still report "no new activity" for a commit it just saw. Encoding it here
 removes that failure mode entirely: the skill only has to relay this output.
 
 Reads credentials from ~/.openclaw/.env because the gateway strips
-secret-shaped variables from the agent's exec environment.
+secret-shaped variables from the agent's exec environment. That is also why the
+`commits` subcommand exists: a question like "what was the last commit message?"
+used to be answered with a hand-rolled curl using $GITHUB_TOKEN, which the
+gateway blanks, so the agent concluded the token was unconfigured. Anything
+needing the credential has to go through this script.
 
 Exit codes: 0 = ran fine (new activity or not), 1 = configuration/API problem.
 """
 
+import argparse
 import json
 import os
 import sys
@@ -102,7 +107,7 @@ def get(path, token):
         sys.exit(f"ERROR: could not reach GitHub ({exc.reason}).")
 
 
-def main():
+def resolve_credentials():
     env = load_env()
     token = env.get("GITHUB_TOKEN", "")
     repo = env.get("GITHUB_REPO", "")
@@ -110,6 +115,30 @@ def main():
         sys.exit(f"ERROR: GITHUB_TOKEN not found in {ENV_PATH} or the environment.")
     if not repo:
         sys.exit(f"ERROR: GITHUB_REPO not found in {ENV_PATH} or the environment.")
+    return token, repo
+
+
+def report_commits(count):
+    """Answer "what was the last commit?" without disturbing the state file.
+
+    Deliberately read-only: asking about a commit must not consume it as
+    "already seen", or the next scheduled poll would go silent about it.
+    """
+    token, repo = resolve_credentials()
+    commits = get(f"/repos/{repo}/commits?per_page={count}", token)
+    if not commits:
+        print(f"NO_COMMITS in {repo}.")
+        return
+    print(f"COMMITS in {repo} (newest first):")
+    for c in commits:
+        msg = c["commit"]["message"].splitlines()[0]
+        author = c["commit"]["author"]["name"]
+        date = c["commit"]["author"]["date"][:16].replace("T", " ")
+        print(f"  - {c['sha'][:7]} {msg} ({author}, {date} UTC)")
+
+
+def check_activity():
+    token, repo = resolve_credentials()
 
     state, first_run = load_state()
     base = f"/repos/{repo}"
@@ -190,6 +219,20 @@ def main():
         print("\n".join(lines))
     else:
         print(f"NO_NEW_ACTIVITY in {repo} (baseline {newest_sha[:7]}).")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    sub = parser.add_subparsers(dest="mode")
+    sub.add_parser("check", help="poll for new activity and update state (default)")
+    commits = sub.add_parser("commits", help="list recent commits, read-only")
+    commits.add_argument("-n", "--count", type=int, default=5)
+    args = parser.parse_args()
+
+    if args.mode == "commits":
+        report_commits(args.count)
+    else:
+        check_activity()
 
 
 if __name__ == "__main__":

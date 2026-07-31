@@ -113,8 +113,12 @@
 
   skills: {
     load: {
-      // Custom skills live beside this file; the image copies them to /app/skills.
-      extraDirs: ["/app/skills"],
+      // The image copies custom skills to /app/workspace/skills, matching the local
+      // layout (~/.openclaw/workspace/skills). Workspace skills are normally
+      // auto-discovered, so this is belt-and-braces — but it costs nothing and
+      // guarantees the skill loads even if discovery is keyed off the state dir
+      // rather than the configured workspace.
+      extraDirs: ["/app/workspace/skills"],
     },
   },
 }

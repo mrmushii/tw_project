@@ -23,7 +23,13 @@ WORKDIR /app
 
 # Config template and custom skills. Secrets come from env at runtime, never baked in.
 COPY openclaw/openclaw.json /app/openclaw.json
-COPY openclaw/skills /app/skills
+
+# Skills go INSIDE the workspace, at workspace/skills/<name>/, so the container
+# layout is identical to the local install (~/.openclaw/workspace/skills/<name>/).
+# They used to land in /app/skills, which meant the workspace-relative path in
+# SKILL.md resolved to a file that existed locally but not here — the skill then
+# reported "files not found" on the deployed instance only. One layout, one path.
+COPY openclaw/skills /app/workspace/skills
 
 # Chela's persona — IDENTITY.md / SOUL.md / USER.md. These live in the agent
 # workspace, which OpenClaw would otherwise place under the (ephemeral) state dir,
